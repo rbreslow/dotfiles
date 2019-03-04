@@ -1,0 +1,47 @@
+#!/bin/bash
+
+set -e
+
+function usage() {
+    echo -n \
+         "Usage: $(basename "$0")
+List packages without dependents. Compare these packages and their dependencies against the output of brew list and remove the unwanted packages after verifying with the user.
+"
+}
+
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    if [ "${1:-}" = "--help" ]; then
+        usage
+    else
+        temp_dir=$(mktemp -d)
+        pushd $temp_dir
+
+        # List packages without dependents
+        brew leaves > brew_packages
+        $EDITOR brew_packages
+
+        # Create unique list of packages and their dependencies
+        cat brew_packages | xargs -I {} bash -c "echo {}; brew deps {}" | sort | uniq > brew_keep
+        
+        # Compare against list of all installed packages
+        comm -23 <(brew list -1 | sort) <(cat brew_keep) > brew_rm
+        
+        # These are the unwanted packages
+        lines=$(cat brew_rm | wc -l | sed -e 's/ //g')
+        
+        if [ "$lines" -ne "0" ]; then
+            echo "Remove the following packages?"
+            cat brew_rm
+            read -p "Remove? [yn]" ans
+            if [ "$ans" == "y" ]; then
+                brew rm $(cat brew_rm)
+            fi
+        else
+            echo "All clean"
+        fi
+
+        popd
+        rm -r $temp_dir
+    fi
+fi
+

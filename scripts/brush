@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -ex
+
+brew_clean
+
+brew update
+brew cleanup
+brew prune
+brew doctor
